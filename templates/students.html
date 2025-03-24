@@ -25,6 +25,8 @@
                     <th>Classes Attended</th>
                     <th>Attendance (%)</th>
                     <th>Absent Details</th>
+                    <th>Mark Status</th>
+                    <th>Update Attendance</th>
                 </tr>
             </thead>
             <tbody id="attendanceTable"></tbody>
@@ -32,6 +34,11 @@
     </div>
 </div>
 
+
+{% endblock %}
+
+
+{% block scripts %}
 <script>
     function searchStudent() {
         let regNo = document.getElementById("searchRegNo").value.trim();
@@ -41,7 +48,7 @@
             return;
         }
 
-        fetch(`/get-student/${regNo}`)
+        fetch('/get-student/'+regNo)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -57,11 +64,11 @@
                 tableBody.innerHTML = "";
 
                 for (let subject in data.subject_wise) {
-                    let row = `<tr>
+                    let row = `<tr id="row-${subject}">
                         <td>${subject}</td>
                         <td>${data.subject_wise[subject].total}</td>
-                        <td>${data.subject_wise[subject].attended}</td>
-                        <td>${(data.subject_wise[subject].attended / data.subject_wise[subject].total * 100).toFixed(2)}%</td>
+                        <td><input type="number" id="attended-${subject}" value="${data.subject_wise[subject].attended}" class="form-control" style="width: 80px;"></td>
+                        <td id="attendance-${subject}">${(data.subject_wise[subject].attended / data.subject_wise[subject].total * 100).toFixed(2)}%</td>
                         <td>
                             <button class="btn btn-info btn-sm" onclick="toggleAbsentDetails('${subject}')">View Absent Details</button>
                             <div id="absent-${subject}" style="display: none;">
@@ -69,11 +76,21 @@
 
                     data.attendance_records.forEach(record => {
                         if (record.subject === subject && record.status === "Absent") {
-                            row += `<li>${record.date} - Period ${record.period}</li>`;
+                            row += `<li id="record-${subject}-${record.date}-${record.period}">${record.date} - Period ${record.period} 
+                                <button class="btn btn-warning btn-sm" onclick="markStatus('${subject}', '${record.date}', '${record.period}', 'yellow')">Yellow</button>
+                                <button class="btn btn-primary btn-sm" onclick="markStatus('${subject}', '${record.date}', '${record.period}', 'blue')">Blue</button>
+                            </li>`;
                         }
                     });
 
-                    row += `</ul></div></td></tr>`;
+                    row += `</ul></div></td>
+                        <td>
+                            <button class="btn btn-info btn-sm" onclick="toggleAbsentDetails('${subject}')">Manage Status</button>
+                        </td>
+                        <td>
+                            <button class="btn btn-success btn-sm" onclick="updateAttendance('${subject}', ${data.subject_wise[subject].total})">Update</button>
+                        </td>
+                    </tr>`;
                     tableBody.innerHTML += row;
                 }
             })
@@ -84,6 +101,24 @@
         let details = document.getElementById("absent-" + subject);
         details.style.display = details.style.display === "none" ? "block" : "none";
     }
-</script>
 
+    function markStatus(subject, date, period, color) {
+        let recordId = 'record-'+subject+'-'+date+'-' + period;
+        let recordElement = document.getElementById(recordId);
+        if (recordElement) {
+            recordElement.style.backgroundColor = color;
+        }
+    }
+
+    function updateAttendance(subject, totalClasses) {
+        let attendedInput = document.getElementById('attended-${subject}');
+        let newAttended = parseInt(attendedInput.value);
+        if (isNaN(newAttended) || newAttended < 0 || newAttended > totalClasses) {
+            alert("Invalid number of attended classes.");
+            return;
+        }
+        let newAttendance = ((newAttended / totalClasses) * 100).toFixed(2) + "%";
+        document.getElementById('attendance-${subject}').innerText = newAttendance;
+    }
+</script>
 {% endblock %}

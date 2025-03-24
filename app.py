@@ -551,5 +551,42 @@ def update_leave_status(id, action):
     return redirect(url_for('hostel_leave_page'))
 
 
-if __name__ == '__main__':
+
+@app.route('/get-student/<reg_no>', methods=['GET'])
+def get_student(reg_no):
+    student = db.students.find_one({"regNo": reg_no})
+
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    attendance_records = list(db.attendance.find({"student_id": student["_id"]}))
+    
+    subject_wise = {}
+    for record in attendance_records:
+        subject = record.get("subject", "Unknown") 
+        if subject not in subject_wise:
+            subject_wise[subject] = {"total": 0, "attended": 0}
+
+        subject_wise[subject]["total"] += 1
+        if record.get("status") == "Present":
+            subject_wise[subject]["attended"] += 1
+
+    total_attended = sum(data["attended"] for data in subject_wise.values())
+    total_classes = sum(data["total"] for data in subject_wise.values())
+    overall_attendance = (total_attended / total_classes * 100) if total_classes else 100.0
+
+    return jsonify({
+        "name": student.get("name", "Unknown"),
+        "overall_attendance": round(overall_attendance, 2),
+        "subject_wise": subject_wise,
+        "attendance_records": [{
+            "subject": rec.get("subject", "Unknown"),
+            "date": rec.get("date", "").strftime("%Y-%m-%d") if rec.get("date") else "Unknown",
+            "period": rec.get("period", "Unknown"),
+            "status": rec.get("status", "Unknown")
+        } for rec in attendance_records]
+    })
+
+
+if __name__ == '_main_':
     app.run(debug=True)
